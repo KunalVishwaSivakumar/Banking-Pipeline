@@ -1,5 +1,9 @@
 version: '3.8'
+
 services:
+  # --------------------------------
+  # Zookeeper
+  # --------------------------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     environment:
@@ -8,14 +12,17 @@ services:
     ports:
       - "2181:2181"
 
+  # --------------------------------
+  # Kafka
+  # --------------------------------
   kafka:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"   # internal Docker network
-      - "29092:29092" # host machine access
+      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -27,7 +34,9 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
-
+  # --------------------------------
+  # Debezium Connect
+  # --------------------------------
   connect:
     image: debezium/connect:2.2
     depends_on:
@@ -47,6 +56,9 @@ services:
       KEY_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
       VALUE_CONVERTER: 'org.apache.kafka.connect.json.JsonConverter'
 
+  # --------------------------------
+  # Main Postgres (Banking DB)
+  # --------------------------------
   postgres:
     image: postgres:15
     environment:
@@ -61,7 +73,10 @@ services:
       postgres -c wal_level=logical
               -c max_wal_senders=10
               -c max_replication_slots=10
-               
+
+  # --------------------------------
+  # MinIO
+  # --------------------------------
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -73,7 +88,32 @@ services:
       - "9001:9001"
     volumes:
       - ./docker/minio/data:/data
-    
+
+  # --------------------------------
+  # Airflow Metadata Database (Postgres)
+  # --------------------------------
+  airflow-postgres:
+    image: postgres:15
+    container_name: airflow-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+    ports:
+      - "5433:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_DB_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+
+  # --------------------------------
+  # Airflow Webserver
+  # --------------------------------
   airflow-webserver:
     build:
       context: .
@@ -81,8 +121,8 @@ services:
     container_name: airflow-webserver
     restart: always
     depends_on:
-      - airflow-scheduler
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-postgres:5432/${AIRFLOW_DB_NAME}
@@ -95,7 +135,15 @@ services:
     ports:
       - "8080:8080"
     command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
 
+  # --------------------------------
+  # Airflow Scheduler
+  # --------------------------------
   airflow-scheduler:
     build:
       context: .
@@ -103,7 +151,8 @@ services:
     container_name: airflow-scheduler
     restart: always
     depends_on:
-      - airflow-postgres
+      airflow-postgres:
+        condition: service_healthy
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-postgres:5432/${AIRFLOW_DB_NAME}
@@ -115,24 +164,13 @@ services:
       - ./banking_dbt/.dbt:/home/airflow/.dbt
     command: scheduler
 
-
-
-  airflow-postgres:
-    image: postgres:15
-    container_name: airflow-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: ${AIRFLOW_DB_USER}
-      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
-      POSTGRES_DB: ${AIRFLOW_DB_NAME}
-    volumes:
-      - airflow_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"  # separate from banking-postgres to avoid conflict
-
+# --------------------------------
+# Volumes & Networks
+# --------------------------------
 volumes:
   airflow_postgres_data:
   postgres_data:
+
 networks:
   default:
     name: banking-mds-net
