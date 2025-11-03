@@ -13,13 +13,13 @@ load_dotenv()
 
 # Kafka consumer settings
 consumer = KafkaConsumer(
-    'banking_server.public.customers',
+    'banking_server.public.customers', #table names
     'banking_server.public.accounts',
     'banking_server.public.transactions',
     bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP"),
     auto_offset_reset='earliest',
     enable_auto_commit=True,
-    group_id=os.getenv("KAFKA_GROUP"),
+    group_id=os.getenv("KAFKA_GROUP"), #start from where is stopped to save offsets
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
 )
 
