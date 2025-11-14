@@ -3,9 +3,22 @@ docker/postgres/data/
 docker/minio/data/
 docker/logs/
 docker/airflow/logs/
+docker/plugins
+
 
 # Ignore temporary system and metadata files
 *.log
 *.pid
 *.bin
 *.meta
+.env
+__pycache__/
+*.pyc
+.vscode/
+/.github/.cache
+
+banking_dbt/.dbt/
+banking_dbt/analyses/
+banking_dbt/logs/
+
+

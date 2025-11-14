@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 # Load secrets from .env
 # -----------------------------
 load_dotenv()
+print("DEBUG KAFKA_BOOTSTRAP =", os.getenv("KAFKA_BOOTSTRAP"))
+
 
 # Kafka consumer settings
 consumer = KafkaConsumer(
