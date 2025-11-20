@@ -109,19 +109,13 @@ GitHub Actions validate dbt models, run tests, and ensure every change remains p
 
 # 🎯 Final Outcomes
 
-By the end of pipeline execution, you will have:
-
+By the end of pipeline execution
 - Fully automated data ingestion from OLTP → Warehouse  
 - Real‑time CDC events captured and stored reliably  
 - Cleaned, conformed analytics tables ready for dashboards  
 - Historical tracking of customer & account changes  
 - A complete modern data stack setup runnable locally via Docker  
-
-Perfect for:
-- Data engineering portfolios  
-- Demoing a real‑world architecture  
-- Learning CI/CD, dbt, CDC, and orchestration  
-- Showcasing Snowflake + modern tooling in action  
+ 
 
 ---
 
